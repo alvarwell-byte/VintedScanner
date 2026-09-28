@@ -188,7 +188,8 @@ class WizardTests(unittest.TestCase):
         self.assertEqual(query["filters"]["catalog"], ["183"])
         self.assertEqual(query["filters"]["brand"], ["53"])
         self.assertEqual(query["filters"]["status"], ["1", "2"])
-        self.assertEqual(query["order"], "newest_first")
+        self.assertEqual(query["order"], "relevance")
+        self.assertEqual(query["per_page"], "24")
 
     def test_generated_query_uses_expanded_braces_and_indentation(self):
         output = []

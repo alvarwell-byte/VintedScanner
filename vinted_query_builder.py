@@ -432,9 +432,9 @@ def build_query_interactively(client, catalogs, input_fn=input, output_fn=print)
     )
     query = {
         "page": "1",
-        "per_page": "96",
+        "per_page": "24",
         "search_text": keyword,
-        "order": "newest_first",
+        "order": "relevance",
         "filters": {"catalog": [category["id"]] if category else []},
     }
     configure_dynamic_filters(client, query, input_fn, output_fn)
@@ -470,9 +470,9 @@ def format_query_mapping(mapping, level=0):
 def build_context_query(category=None, keyword=""):
     return {
         "page": "1",
-        "per_page": "96",
+        "per_page": "24",
         "search_text": keyword,
-        "order": "newest_first",
+        "order": "relevance",
         "filters": {"catalog": [str(category)] if category else []},
     }
 

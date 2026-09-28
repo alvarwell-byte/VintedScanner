@@ -101,9 +101,9 @@ To customize the script for your needs, you must configure the `Config.py` file.
      queries = [
          {
              "page": "1",
-             "per_page": "96",
+            "per_page": "24",
              "search_text": "jeans",
-             "order": "newest_first",
+            "order": "relevance",
              "filters": {
                  "catalog": [],
                  "brand": ["417"],  # Example brand ID
@@ -115,9 +115,9 @@ To customize the script for your needs, you must configure the `Config.py` file.
          },
          {
              "page": "1",
-             "per_page": "96",
+            "per_page": "24",
              "search_text": "t-shirt",
-             "order": "newest_first",
+            "order": "relevance",
              "filters": {
                  "catalog": ["2996"],  # Example category ID
                  "brand": [],
@@ -138,8 +138,11 @@ To customize the script for your needs, you must configure the `Config.py` file.
      `"brand": ["417", "53"]`.
    - `price_from`, `price_to`, and `currency` can be added at query level when
      price filtering is required.
-   - `order`: Keep this set to `newest_first` so newly listed items are checked
-     before older results.
+   - `order`: Use `relevance` to prioritize strong matches and reduce unrelated
+     results produced by Vinted's fuzzy search. `newest_first` remains available
+     for precise searches where chronological order is more important.
+   - `per_page`: The recommended value is `24`. This limits weak matches while
+     remaining suitable for a scanner that runs frequently.
 
 The scanner initializes an anonymous session on the configured marketplace and
 then searches through `https://api.<marketplace-domain>/svc-catalogue/items`.
@@ -159,8 +162,8 @@ The wizard uses the marketplace and locale from `Config.py`, optionally shows
 a matching-item preview, and prints a query dictionary ready to copy into the
 `queries` list. Category names must be searched in the language identified by
 `vinted_locale` (for example, Italian with `it-IT`). The builder displays the
-active locale in the category prompt. Queries always use `newest_first`, which
-is required to reliably detect newly listed items. The builder never modifies
+active locale in the category prompt. Generated queries use `relevance` and
+request 24 results to prioritize stronger matches. The builder never modifies
 `Config.py`.
 
 Copy the generated dictionary into `queries` in `Config.py`. The sample
@@ -193,6 +196,8 @@ python3 vinted_scanner.py
 ```
 
 The script will check for new items based on your queries and send notifications accordingly.
+Each notification includes the matching search text so results can be traced
+back to the query that produced them.
 An item is saved as analyzed only after every configured notification succeeds.
 If a delivery fails, the item is retried during the next execution. When more
 than one channel is enabled, this may repeat a notification on a channel that
@@ -219,10 +224,10 @@ notifications, use:
 python3 vinted_scanner.py --dry-run
 ```
 
-New items are printed in the terminal and are still saved in the local
-`vinted_items.txt` database. Consequently, they will be considered already
-analyzed during subsequent executions. This runtime file is created
-automatically on first use and is excluded from Git.
+New items and their matching search text are printed in the terminal and are
+still saved in the local `vinted_items.txt` database. Consequently, they will
+be considered already analyzed during subsequent executions. This runtime
+file is created automatically on first use and is excluded from Git.
 
 To display all available command-line options:
 

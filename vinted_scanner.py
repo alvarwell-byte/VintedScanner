@@ -251,7 +251,7 @@ def save_analyzed_item(item_id, database_path=ITEMS_DATABASE_PATH):
         database.write(f"{item_id}\n")
 
 
-def send_email(item_title, item_price, item_url, item_image):
+def send_email(item_title, item_price, item_url, item_image, matched_query=None):
     """Send an email notification and report whether it succeeded."""
     try:
         message = EmailMessage()
@@ -263,7 +263,10 @@ def send_email(item_title, item_price, item_url, item_image):
         message["Date"] = email.utils.formatdate(localtime=True)
         message["Message-ID"] = email.utils.make_msgid()
 
-        body_lines = [item_title, str(item_price), f"🔗 {item_url}"]
+        body_lines = [item_title, str(item_price)]
+        if matched_query:
+            body_lines.append(f"Matched query: {matched_query}")
+        body_lines.append(f"🔗 {item_url}")
         if item_image:
             body_lines.append(f"📷 {item_image}")
         message.set_content("\n".join(body_lines))
@@ -285,9 +288,12 @@ def send_email(item_title, item_price, item_url, item_image):
         return False
 
 
-def send_slack_message(item_title, item_price, item_url, item_image):
+def send_slack_message(item_title, item_price, item_url, item_image, matched_query=None):
     """Send a Slack notification and report whether it succeeded."""
-    message_lines = [f"*{item_title}*", f"🏷️ {item_price}", f"🔗 {item_url}"]
+    message_lines = [f"*{item_title}*", f"🏷️ {item_price}"]
+    if matched_query:
+        message_lines.append(f"Matched query: {matched_query}")
+    message_lines.append(f"🔗 {item_url}")
     if item_image:
         message_lines.append(f"📷 {item_image}")
 
@@ -305,13 +311,19 @@ def send_slack_message(item_title, item_price, item_url, item_image):
         return False
 
 
-def send_telegram_message(item_title, item_price, item_url, item_image):
+def send_telegram_message(
+    item_title, item_price, item_url, item_image, matched_query=None
+):
     """Send an HTML-safe Telegram notification and report its result."""
     message_lines = [
         f"<b>{html.escape(str(item_title))}</b>",
         f"🏷️ {html.escape(str(item_price))}",
-        f"🔗 {html.escape(str(item_url))}",
     ]
+    if matched_query:
+        message_lines.append(
+            f"Matched query: {html.escape(str(matched_query))}"
+        )
+    message_lines.append(f"🔗 {html.escape(str(item_url))}")
     if item_image:
         message_lines.append(f"📷 {html.escape(str(item_image))}")
 
@@ -336,18 +348,28 @@ def send_telegram_message(item_title, item_price, item_url, item_image):
         return False
 
 
-def send_notifications(item_title, item_price, item_url, item_image):
+def send_notifications(
+    item_title, item_price, item_url, item_image, matched_query=None
+):
     """Send all configured notifications and require every one to succeed."""
     results = []
     if Config.smtp_username and Config.smtp_server:
-        results.append(send_email(item_title, item_price, item_url, item_image))
+        results.append(
+            send_email(
+                item_title, item_price, item_url, item_image, matched_query
+            )
+        )
     if Config.slack_webhook_url:
         results.append(
-            send_slack_message(item_title, item_price, item_url, item_image)
+            send_slack_message(
+                item_title, item_price, item_url, item_image, matched_query
+            )
         )
     if Config.telegram_bot_token and Config.telegram_chat_id:
         results.append(
-            send_telegram_message(item_title, item_price, item_url, item_image)
+            send_telegram_message(
+                item_title, item_price, item_url, item_image, matched_query
+            )
         )
 
     if not results:
@@ -427,24 +449,32 @@ def normalize_item(item):
     }
 
 
-def print_dry_run_item(item):
+def print_dry_run_item(item, matched_query=None):
     """Print one normalized item without sending a notification."""
     print(f"Title: {item['title']}")
     print(f"Price: {item['price']}")
+    if matched_query:
+        print(f"Matched query: {matched_query}")
     print(f"URL: {item['url']}")
     if item["image"]:
         print(f"Image: {item['image']}")
     print()
 
 
-def process_item(item, analyzed_items, dry_run, database_path=ITEMS_DATABASE_PATH):
+def process_item(
+    item,
+    analyzed_items,
+    dry_run,
+    database_path=ITEMS_DATABASE_PATH,
+    matched_query=None,
+):
     """Process one item and persist it only after the requested action succeeds."""
     normalized_item = normalize_item(item)
     if not normalized_item or normalized_item["id"] in analyzed_items:
         return True
 
     if dry_run:
-        print_dry_run_item(normalized_item)
+        print_dry_run_item(normalized_item, matched_query)
         succeeded = True
     else:
         succeeded = send_notifications(
@@ -452,6 +482,7 @@ def process_item(item, analyzed_items, dry_run, database_path=ITEMS_DATABASE_PAT
             normalized_item["price"],
             normalized_item["url"],
             normalized_item["image"],
+            matched_query,
         )
 
     if succeeded:
@@ -476,6 +507,7 @@ def process_queries(session, catalog_url, queries, api_headers, analyzed_items, 
     """Process every configured query and report whether any query failed."""
     processing_failed = False
     for params in queries:
+        matched_query = params.get("search_text") or "filters only"
         try:
             items = get_catalog_items(session, catalog_url, params, api_headers)
         except CatalogError as error:
@@ -484,7 +516,12 @@ def process_queries(session, catalog_url, queries, api_headers, analyzed_items, 
             continue
 
         for item in items:
-            if not process_item(item, analyzed_items, dry_run):
+            if not process_item(
+                item,
+                analyzed_items,
+                dry_run,
+                matched_query=matched_query,
+            ):
                 processing_failed = True
     return processing_failed
 

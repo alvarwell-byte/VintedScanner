@@ -78,6 +78,7 @@ class NotificationTests(unittest.TestCase):
             "10 & 20 EUR",
             "https://example.test/item?a=1&b=2",
             None,
+            "gl.<inet>",
         )
 
         self.assertTrue(result)
@@ -85,6 +86,7 @@ class NotificationTests(unittest.TestCase):
         self.assertEqual(call.kwargs["timeout"], scanner.REQUEST_TIMEOUT_SECONDS)
         self.assertIn("A &lt; B &amp; C", call.kwargs["params"]["text"])
         self.assertIn("a=1&amp;b=2", call.kwargs["params"]["text"])
+        self.assertIn("Matched query: gl.&lt;inet&gt;", call.kwargs["params"]["text"])
 
     @patch("vinted_scanner.send_email", return_value=False)
     def test_all_configured_notifications_must_succeed(self, send_email):
@@ -197,6 +199,10 @@ class CatalogueTests(unittest.TestCase):
         self.assertTrue(failed)
         get_catalog_items.assert_called_once()
         process_item.assert_called_once()
+        self.assertEqual(
+            process_item.call_args.kwargs["matched_query"],
+            "filters only",
+        )
 
 
 class ItemProcessingTests(unittest.TestCase):
@@ -220,12 +226,14 @@ class ItemProcessingTests(unittest.TestCase):
                 analyzed_items,
                 dry_run=False,
                 database_path=database_path,
+                matched_query="gl.inet",
             )
 
             self.assertFalse(succeeded)
             self.assertEqual(database_path.read_text(encoding="utf-8"), "")
             self.assertEqual(analyzed_items, set())
             send_notifications.assert_called_once()
+            self.assertEqual(send_notifications.call_args.args[-1], "gl.inet")
 
     def test_relative_item_url_is_resolved_against_marketplace(self):
         with patch.object(scanner.Config, "vinted_url", "https://www.vinted.it"):
@@ -278,12 +286,14 @@ class ItemProcessingTests(unittest.TestCase):
                 analyzed_items,
                 dry_run=True,
                 database_path=database_path,
+                matched_query="gl.inet",
             )
 
             self.assertTrue(succeeded)
             self.assertEqual(database_path.read_text(encoding="utf-8"), "123\n")
             self.assertEqual(analyzed_items, {"123"})
             print_item.assert_called_once()
+            self.assertEqual(print_item.call_args.args[-1], "gl.inet")
 
 
 class MainTests(unittest.TestCase):

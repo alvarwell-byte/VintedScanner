@@ -19,7 +19,8 @@ vinted_locale = "it-IT"
 
 # Vinted search queries
 # "search_text" may be empty when searching only by filters.
-# Keep "order" set to newest_first so the scanner can reliably detect new items.
+# The query builder defaults to relevance and 24 results to limit weak matches
+# returned by Vinted's fuzzy search.
 # Each filter value must be a list of Vinted IDs. Leave the list empty to
 # disable that filter. Multiple IDs are supported in the same filter.
 
