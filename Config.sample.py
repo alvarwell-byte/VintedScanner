@@ -12,10 +12,10 @@ telegram_bot_token = ""
 telegram_chat_id = ""
 
 # Vinted URL: change the TLD according to your country (.fr, .es, etc.)
-vinted_url = "https://www.vinted.it"
+vinted_url = "https://www.vinted.es"
 
 # Locale sent to the Vinted API. This can differ for multilingual markets.
-vinted_locale = "it-IT"
+vinted_locale = "es-ES"
 
 # Vinted search queries
 # "search_text" may be empty when searching only by filters.
@@ -25,4 +25,19 @@ vinted_locale = "it-IT"
 # disable that filter. Multiple IDs are supported in the same filter.
 
 # Use vinted_query_builder.py to generate entries for this list.
-queries = []
+queries = [
+    {
+        "page": "1",
+        "per_page": "24",
+        "search_text": "tamagotchi",
+        "order": "newest_first",
+        "filters": {
+            "catalog": [],
+            "brand": [],
+            "size": [],
+            "status": [],
+            "color": [],
+            "material": [],
+        },
+    }
+]
