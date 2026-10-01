@@ -1,0 +1,88 @@
+name: Vinted Tamagotchi Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '2-59/5 * * * *'
+
+concurrency:
+  group: vinted-tamagotchi-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Crear Config.py de forma segura
+        run: |
+          cp Config.sample.py Config.py
+          cat >> Config.py <<'PY'
+
+          import os
+          telegram_bot_token = os.environ["TELEGRAM_BOT_TOKEN"]
+          telegram_chat_id = os.environ["TELEGRAM_CHAT_ID"]
+          PY
+
+      - name: Recuperar historial de anuncios
+        uses: actions/cache/restore@v4
+        with:
+          path: vinted_items.txt
+          key: vinted-items-${{ github.run_id }}
+          restore-keys: |
+            vinted-items-
+
+      - name: Buscar nuevos Tamagotchi
+        run: |
+          if [ -f vinted_items.txt ]; then
+            echo "Historial encontrado. Buscando anuncios nuevos..."
+            python3 vinted_scanner.py
+          else
+            echo "Primera ejecución. Guardando los anuncios actuales sin notificarlos..."
+            python3 vinted_scanner.py --dry-run
+          fi
+
+      - name: Guardar historial de anuncios
+        if: always() && hashFiles('vinted_items.txt') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: vinted_items.txt
+          key: vinted-items-${{ hashFiles('vinted_items.txt') }}
+
+      - name: Confirmar activación por Telegram
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          python3 - <<'PY'
+          import os
+          import requests
+
+          r = requests.post(
+              f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage",
+              data={
+                  "chat_id": os.environ["TELEGRAM_CHAT_ID"],
+                  "text": "✅ Monitor de Tamagotchi en Vinted activado correctamente."
+              },
+              timeout=20,
+          )
+          r.raise_for_status()
+          PY
